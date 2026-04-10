@@ -1,50 +1,139 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export interface Message {
   role: 'user' | 'model';
   content: string;
+  image?: string; // Base64 string
+  graph?: any;
+  quiz?: any;
+  isSaved?: boolean;
+  rating?: number;
+  feedback?: string;
 }
 
-const SYSTEM_PROMPT = `You are MathMind AI, an expert assistant specializing in Applied Mathematics. 
-Your expertise includes:
-- Calculus (Single and Multivariable)
-- Linear Algebra and Matrix Theory
-- Differential Equations (ODE and PDE)
-- Numerical Analysis and Algorithms
-- Probability and Statistics
-- Mathematical Modeling (Physics, Engineering, Economics)
-- Optimization and Control Theory
-- Technical Computing (Python/NumPy/SciPy, MATLAB)
+const plotFunctionTool: FunctionDeclaration = {
+  name: "plot_function",
+  description: "Generate a graph for a mathematical function or dataset.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      type: {
+        type: Type.STRING,
+        enum: ["line", "scatter"],
+        description: "The type of plot to generate."
+      },
+      title: {
+        type: Type.STRING,
+        description: "The title of the graph."
+      },
+      xAxis: {
+        type: Type.STRING,
+        description: "Label for the X-axis."
+      },
+      yAxis: {
+        type: Type.STRING,
+        description: "Label for the Y-axis."
+      },
+      data: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          description: "Data points for the graph."
+        }
+      }
+    },
+    required: ["type", "title", "xAxis", "yAxis", "data"]
+  }
+};
+
+const generateQuizTool: FunctionDeclaration = {
+  name: "generate_quiz",
+  description: "Generate a mathematical quiz for practice.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      topic: { type: Type.STRING, description: "The math topic for the quiz." },
+      questions: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            question: { type: Type.STRING },
+            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+            correctAnswer: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+          },
+          required: ["question", "options", "correctAnswer", "explanation"]
+        }
+      }
+    },
+    required: ["topic", "questions"]
+  }
+};
+
+const SYSTEM_PROMPT = `You are MathMind AI, an Intelligent AI Tutor specializing in Applied Mathematics. 
+
+Core Philosophies:
+1. **Tutoring Mode**: Instead of just giving answers, guide the user through the logic. Ask Socratic questions when appropriate.
+2. **Multiple Solution Methods**: Whenever possible, provide at least two different ways to solve a problem (e.g., Algebraic vs. Geometric, Numerical vs. Analytical).
+3. **Handwriting Recognition**: You are an expert at identifying and transcribing handwritten mathematical equations from images. Be precise with indices, exponents, and Greek letters.
+4. **Topic-Wise Mastery**: Organize complex explanations by topic.
 
 Guidelines:
-1. Provide clear, step-by-step mathematical derivations.
-2. Use LaTeX for all mathematical expressions (e.g., $x^2$ or $$\\int_0^\\infty e^{-x^2} dx$$).
-3. When asked for code, provide efficient Python or MATLAB snippets using standard libraries.
-4. Explain the physical or practical intuition behind mathematical concepts.
-5. Be precise, rigorous, but accessible.
-6. If a problem is ill-posed, ask for clarification.
+- Provide clear, step-by-step mathematical derivations.
+- Use LaTeX for all mathematical expressions (e.g., $x^2$ or $$\\int_0^\\infty e^{-x^2} dx$$).
+- When asked for code, provide efficient Python or MATLAB snippets.
+- Use the 'plot_function' tool to visualize functions or data.
+- Use the 'generate_quiz' tool when the user wants to practice or take a quiz.
 
 Always format math using $...$ for inline and $$...$$ for block math.`;
 
 export async function chatWithGemini(history: Message[]) {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview", // Using pro for complex math
-      contents: history.map(m => ({
+    const contents = history.map(m => {
+      const parts: any[] = [{ text: m.content }];
+      if (m.image) {
+        parts.push({
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: m.image.split(',')[1]
+          }
+        });
+      }
+      return {
         role: m.role,
-        parts: [{ text: m.content }]
-      })),
+        parts
+      };
+    });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.7,
+        tools: [{ functionDeclarations: [plotFunctionTool, generateQuizTool] }],
       },
     });
 
-    return response.text || "I'm sorry, I couldn't generate a response.";
+    const text = response.text || "";
+    const functionCalls = response.functionCalls;
+
+    let graph = null;
+    let quiz = null;
+
+    if (functionCalls) {
+      const plotCall = functionCalls.find(c => c.name === 'plot_function');
+      const quizCall = functionCalls.find(c => c.name === 'generate_quiz');
+      if (plotCall) graph = plotCall.args;
+      if (quizCall) quiz = quizCall.args;
+    }
+
+    return { text, graph, quiz };
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Error: Failed to connect to the mathematical engine.";
+    return { text: "Error: Failed to connect to the mathematical engine.", graph: null, quiz: null };
   }
 }

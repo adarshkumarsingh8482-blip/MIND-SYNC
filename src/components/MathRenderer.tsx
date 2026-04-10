@@ -2,10 +2,32 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { cn } from '@/src/lib/utils';
+import { Copy, Check } from 'lucide-react';
+import { useState } from 'react';
 
 interface MathRendererProps {
   content: string;
   className?: string;
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-sm bg-zinc-800 border border-math-line text-math-ink/50 hover:text-math-accent hover:border-math-accent transition-all z-10"
+      title="Copy code"
+    >
+      {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+    </button>
+  );
 }
 
 export function MathRenderer({ content, className }: MathRendererProps) {
@@ -16,17 +38,33 @@ export function MathRenderer({ content, className }: MathRendererProps) {
         rehypePlugins={[rehypeKatex]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
+            const codeString = String(children).replace(/\n$/, '');
+            if (inline) {
+              return (
+                <code
+                  className={cn(
+                    "bg-white/10 px-1.5 py-0.5 rounded font-mono text-xs text-math-accent",
+                    className
+                  )}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
             return (
-              <code
-                className={cn(
-                  "bg-white/10 px-1.5 py-0.5 rounded font-mono text-xs text-math-accent",
-                  !inline && "block p-4 my-4 overflow-x-auto bg-zinc-900 border border-math-line text-math-ink",
-                  className
-                )}
-                {...props}
-              >
-                {children}
-              </code>
+              <div className="relative group my-4">
+                <CopyButton text={codeString} />
+                <code
+                  className={cn(
+                    "block p-4 overflow-x-auto bg-zinc-900 border border-math-line text-math-ink rounded-sm font-mono text-xs",
+                    className
+                  )}
+                  {...props}
+                >
+                  {children}
+                </code>
+              </div>
             );
           },
           p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
