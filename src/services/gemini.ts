@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 export interface Message {
   role: 'user' | 'model';
@@ -91,6 +92,14 @@ Guidelines:
 Always format math using $...$ for inline and $$...$$ for block math.`;
 
 export async function chatWithGemini(history: Message[]) {
+  if (!apiKey) {
+    return { 
+      text: "Configuration Error: GEMINI_API_KEY is missing. Please ensure the environment variable is set in your deployment platform (e.g., Vercel).", 
+      graph: null, 
+      quiz: null 
+    };
+  }
+
   try {
     const contents = history.map(m => {
       const parts: any[] = [{ text: m.content }];
@@ -132,8 +141,19 @@ export async function chatWithGemini(history: Message[]) {
     }
 
     return { text, graph, quiz };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return { text: "Error: Failed to connect to the mathematical engine.", graph: null, quiz: null };
+    
+    let errorMessage = "Error: Failed to connect to the mathematical engine.";
+    
+    if (error?.message?.includes("API_KEY_INVALID")) {
+      errorMessage = "Error: Invalid API Key. Please check your GEMINI_API_KEY configuration.";
+    } else if (error?.message?.includes("location is not supported")) {
+      errorMessage = "Error: The Gemini API is not supported in your current region.";
+    } else if (error?.message?.includes("quota")) {
+      errorMessage = "Error: API quota exceeded. Please try again later.";
+    }
+    
+    return { text: errorMessage, graph: null, quiz: null };
   }
 }
