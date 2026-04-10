@@ -1,6 +1,9 @@
-import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey || apiKey === "undefined" || apiKey === "") {
+  console.warn("GEMINI_API_KEY is not set or is empty. Please check your environment variables.");
+}
 const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 export interface Message {
@@ -92,9 +95,9 @@ Guidelines:
 Always format math using $...$ for inline and $$...$$ for block math.`;
 
 export async function chatWithGemini(history: Message[]) {
-  if (!apiKey) {
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
     return { 
-      text: "Configuration Error: GEMINI_API_KEY is missing. Please ensure the environment variable is set in your deployment platform (e.g., Vercel).", 
+      text: "Configuration Error: GEMINI_API_KEY is missing or empty. Please ensure the environment variable is set in your deployment platform (e.g., Vercel Settings > Environment Variables).", 
       graph: null, 
       quiz: null 
     };
@@ -118,12 +121,18 @@ export async function chatWithGemini(history: Message[]) {
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents,
+      model: "gemini-3.1-flash-lite-preview",
+      contents: contents.slice(-10), // Limit to last 10 messages to save quota/tokens
       config: {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.7,
         tools: [{ functionDeclarations: [plotFunctionTool, generateQuizTool] }],
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+        ]
       },
     });
 
