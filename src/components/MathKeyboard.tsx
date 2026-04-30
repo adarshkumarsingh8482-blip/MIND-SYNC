@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { cn } from '@/src/lib/utils';
 
 interface MathKeyboardProps {
@@ -40,7 +41,7 @@ const SYMBOLS = [
   { label: 'ln', value: 'ln(' },
 ];
 
-export function MathKeyboard({ onInsert, className }: MathKeyboardProps) {
+export const MathKeyboard = memo(function MathKeyboard({ onInsert, className }: MathKeyboardProps) {
   return (
     <div className={cn("grid grid-cols-8 gap-1 p-2 bg-zinc-900 border border-math-line rounded-sm shadow-xl", className)}>
       {SYMBOLS.map((s) => (
@@ -55,4 +56,4 @@ export function MathKeyboard({ onInsert, className }: MathKeyboardProps) {
       ))}
     </div>
   );
-}
+});

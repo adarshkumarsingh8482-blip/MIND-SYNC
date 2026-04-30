@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Send, Calculator, Book, Code, RefreshCcw, User, Bot, 
@@ -76,22 +76,22 @@ export function ChatInterface() {
     setIsLoading(false);
   };
 
-  const handleRate = (index: number, rating: number) => {
+  const handleRate = useCallback((index: number, rating: number) => {
     setMessages(prev => prev.map((msg, i) => 
       i === index ? { ...msg, rating } : msg
     ));
     setFeedbackIndex(index);
-  };
+  }, []);
 
-  const handleFeedback = (index: number, feedback: string) => {
+  const handleFeedback = useCallback((index: number, feedback: string) => {
     setMessages(prev => prev.map((msg, i) => 
       i === index ? { ...msg, feedback } : msg
     ));
-  };
+  }, []);
 
-  const insertSymbol = (symbol: string) => {
+  const insertSymbol = useCallback((symbol: string) => {
     setInput(prev => prev + symbol);
-  };
+  }, []);
 
   const exportToPDF = async () => {
     if (!chatContainerRef.current) return;

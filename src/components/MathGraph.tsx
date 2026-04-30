@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   ScatterChart, Scatter, ZAxis 
@@ -11,7 +12,7 @@ interface GraphData {
   yAxis: string;
 }
 
-export function MathGraph({ graph }: { graph: GraphData }) {
+export const MathGraph = memo(function MathGraph({ graph }: { graph: GraphData }) {
   return (
     <div className="w-full h-64 bg-zinc-900/50 border border-math-line rounded-sm p-4 my-4">
       <h4 className="text-[10px] uppercase font-mono mb-2 text-math-accent tracking-widest">{graph.title}</h4>
@@ -69,4 +70,4 @@ export function MathGraph({ graph }: { graph: GraphData }) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

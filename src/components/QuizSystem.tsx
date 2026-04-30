@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, X, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -16,7 +16,7 @@ interface QuizProps {
   onComplete?: (score: number) => void;
 }
 
-export function QuizSystem({ topic, questions, onComplete }: QuizProps) {
+export const QuizSystem = memo(function QuizSystem({ topic, questions, onComplete }: QuizProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -129,4 +129,4 @@ export function QuizSystem({ topic, questions, onComplete }: QuizProps) {
       )}
     </div>
   );
-}
+});

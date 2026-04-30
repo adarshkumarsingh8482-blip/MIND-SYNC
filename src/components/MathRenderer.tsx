@@ -3,7 +3,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { cn } from '@/src/lib/utils';
 import { Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface MathRendererProps {
   content: string;
@@ -30,7 +30,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function MathRenderer({ content, className }: MathRendererProps) {
+export const MathRenderer = memo(function MathRenderer({ content, className }: MathRendererProps) {
   return (
     <div className={cn("prose prose-sm max-w-none prose-invert prose-p:text-math-ink prose-headings:text-math-ink prose-strong:text-math-accent", className)}>
       <ReactMarkdown
@@ -79,4 +79,4 @@ export function MathRenderer({ content, className }: MathRendererProps) {
       </ReactMarkdown>
     </div>
   );
-}
+});
