@@ -37,6 +37,8 @@ export function ChatInterface() {
   const [activeTab, setActiveTab] = useState<'history' | 'formulas' | 'saved' | 'quiz'>('history');
   const [feedbackIndex, setFeedbackIndex] = useState<number | null>(null);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('environment');
+  const [isScanMode, setIsScanMode] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -123,17 +125,46 @@ export function ChatInterface() {
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (mode?: 'user' | 'environment') => {
     setIsCameraOpen(true);
+    const facingMode = mode || cameraFacingMode;
+    
+    // Stop any existing stream before starting a new one
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: facingMode } 
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
       console.error("Camera error:", err);
-      setIsCameraOpen(false);
+      // Fallback if environment camera is not available
+      if (facingMode === 'environment') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (fallbackErr) {
+          console.error("Camera fallback error:", fallbackErr);
+          setIsCameraOpen(false);
+        }
+      } else {
+        setIsCameraOpen(false);
+      }
     }
+  };
+
+  const toggleCamera = () => {
+    const newMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    setCameraFacingMode(newMode);
+    startCamera(newMode);
   };
 
   const capturePhoto = () => {
@@ -607,7 +638,7 @@ export function ChatInterface() {
               </button>
               <button
                 type="button"
-                onClick={startCamera}
+                onClick={() => startCamera()}
                 className="p-2 text-math-ink/50 hover:text-math-accent transition-colors"
                 title="Take Photo"
               >
@@ -646,6 +677,7 @@ export function ChatInterface() {
           {/* Quick Actions */}
           <div className="flex gap-4 mt-4 overflow-x-auto pb-2 no-scrollbar">
             {[
+              { icon: <Camera size={12} />, label: "Scan Question", onClick: () => { setIsScanMode(true); startCamera(); } },
               { icon: <Calculator size={12} />, label: "Solve ODE", query: "Can you help me solve the second-order ODE: y'' + 2y' + 5y = sin(x)?" },
               { icon: <Book size={12} />, label: "Explain Fourier", query: "Explain the intuition behind Fourier Transforms in signal processing." },
               { icon: <Code size={12} />, label: "Python Model", query: "Write a Python script using SciPy to solve a system of linear equations." },
@@ -653,7 +685,7 @@ export function ChatInterface() {
             ].map((action, i) => (
               <button
                 key={i}
-                onClick={() => setInput(action.query)}
+                onClick={action.onClick || (() => setInput(action.query || ''))}
                 className="flex items-center gap-2 px-3 py-1.5 border border-math-line rounded-sm bg-zinc-900/50 hover:bg-math-accent hover:border-math-accent transition-all text-[10px] uppercase font-mono whitespace-nowrap text-math-ink/70 hover:text-white"
               >
                 {action.icon}
@@ -674,22 +706,75 @@ export function ChatInterface() {
             >
               <div className="relative w-full max-w-2xl bg-zinc-900 border border-math-line rounded-sm overflow-hidden">
                 <div className="flex items-center justify-between p-4 border-b border-math-line">
-                  <span className="font-mono text-xs uppercase tracking-widest text-math-accent">Camera Interface // Active</span>
-                  <button onClick={stopCamera} className="text-math-ink/50 hover:text-white">
-                    <X size={20} />
-                  </button>
+                  <span className="font-mono text-xs uppercase tracking-widest text-math-accent">
+                    {isScanMode ? 'Math Scanner // Active' : `Camera Interface // ${cameraFacingMode === 'user' ? 'Front' : 'Back'}`}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    {!isScanMode && (
+                      <button 
+                        onClick={toggleCamera}
+                        className="text-math-ink/50 hover:text-math-accent transition-colors flex items-center gap-2 text-[10px] uppercase font-mono"
+                      >
+                        <RefreshCcw size={16} />
+                        Switch
+                      </button>
+                    )}
+                    <button onClick={() => { stopCamera(); setIsScanMode(false); }} className="text-math-ink/50 hover:text-white">
+                      <X size={20} />
+                    </button>
+                  </div>
                 </div>
                 <div className="relative aspect-video bg-black">
                   <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                  {isScanMode && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute inset-10 border-2 border-math-accent/50 rounded-sm">
+                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-math-accent" />
+                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-math-accent" />
+                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-math-accent" />
+                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-math-accent" />
+                        
+                        {/* Scanning Line */}
+                        <motion.div 
+                          className="absolute left-0 right-0 h-0.5 bg-math-accent shadow-[0_0_15px_rgba(0,255,157,0.8)]"
+                          animate={{ 
+                            top: ['0%', '100%', '0%'] 
+                          }}
+                          transition={{ 
+                            duration: 3, 
+                            repeat: Infinity, 
+                            ease: "linear" 
+                          }}
+                        />
+                      </div>
+                      <div className="absolute bottom-4 left-0 right-0 text-center">
+                        <span className="bg-black/60 px-3 py-1 rounded-full text-[10px] uppercase font-mono text-math-accent tracking-widest backdrop-blur-sm">
+                          Align question within frame
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <canvas ref={canvasRef} className="hidden" />
                 </div>
-                <div className="p-6 flex justify-center">
+                <div className="p-6 flex justify-center flex-col items-center gap-4">
                   <button 
-                    onClick={capturePhoto}
-                    className="w-16 h-16 rounded-full border-4 border-white/20 flex items-center justify-center hover:border-math-accent transition-all group"
+                    onClick={() => {
+                      capturePhoto();
+                      setIsScanMode(false);
+                    }}
+                    className={cn(
+                      "w-16 h-16 rounded-full border-4 flex items-center justify-center transition-all group",
+                      isScanMode ? "border-math-accent/20 hover:border-math-accent" : "border-white/20 hover:border-math-accent"
+                    )}
                   >
-                    <div className="w-12 h-12 rounded-full bg-white group-hover:bg-math-accent transition-colors" />
+                    <div className={cn(
+                      "w-12 h-12 rounded-full transition-colors",
+                      isScanMode ? "bg-math-accent animate-pulse" : "bg-white group-hover:bg-math-accent"
+                    )} />
                   </button>
+                  {isScanMode && (
+                    <p className="text-[10px] uppercase font-mono opacity-40">Tap to capture and analyze</p>
+                  )}
                 </div>
               </div>
             </motion.div>

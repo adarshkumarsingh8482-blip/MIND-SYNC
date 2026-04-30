@@ -87,6 +87,7 @@ Core Philosophies:
 
 Guidelines:
 - Provide clear, step-by-step mathematical derivations.
+- Be concise but thorough to optimize for clarity and token efficiency.
 - Use LaTeX for all mathematical expressions (e.g., $x^2$ or $$\\int_0^\\infty e^{-x^2} dx$$).
 - When asked for code, provide efficient Python or MATLAB snippets.
 - Use the 'plot_function' tool to visualize functions or data.
@@ -104,9 +105,11 @@ export async function chatWithGemini(history: Message[]) {
   }
 
   try {
-    const contents = history.map(m => {
+    const contents = history.map((m, index) => {
       const parts: any[] = [{ text: m.content }];
-      if (m.image) {
+      // Only include image for the most recent message or the last 2 turns to save quota/tokens
+      // Images are expensive in tokens and contribute to quota limits quickly.
+      if (m.image && index >= history.length - 2) {
         parts.push({
           inlineData: {
             mimeType: "image/jpeg",
@@ -121,8 +124,8 @@ export async function chatWithGemini(history: Message[]) {
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: contents.slice(-10), // Limit to last 10 messages to save quota/tokens
+      model: "gemini-3-flash-preview",
+      contents: contents.slice(-8), // Reduced to last 8 messages for even better quota management
       config: {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.7,
